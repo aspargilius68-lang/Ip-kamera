@@ -32,14 +32,18 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Globális összeomlás-védelem: háttérszálas hiba esetén sem zár be az app!
+        Thread.setDefaultUncaughtExceptionHandler { _, throwable ->
+            runOnUiThread {
+                binding.tvStatus.text = "Belső hiba: ${throwable.localizedMessage ?: throwable.javaClass.simpleName}"
+            }
+        }
+
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
         setupControls()
-    }
-
-    override fun onStart() {
-        super.onStart()
-        startStream()
+        binding.tvStatus.text = "Kész. Nyomj a Fotó vagy Beállítások gombra, vagy koppints ide a csatlakozáshoz!"
     }
 
     override fun onStop() {
@@ -48,6 +52,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupControls() {
+        binding.tvStatus.setOnClickListener { startStream() }
+        binding.playerView.setOnClickListener { startStream() }
+
         binding.switchRemote.isChecked = prefs.getBoolean("is_remote", false)
         binding.switchRemote.setOnCheckedChangeListener { _, isChecked ->
             prefs.edit().putBoolean("is_remote", isChecked).apply()
@@ -91,7 +98,7 @@ class MainActivity : AppCompatActivity() {
         val url = if (isRemote) {
             prefs.getString("remote_rtsp", "") ?: ""
         } else {
-            prefs.getString("local_rtsp", "rtsp://admin:123456@192.168.0.104:554/stream1") ?: ""
+            prefs.getString("local_rtsp", "rtsp://admin:123456@192.168.0.104:554/11") ?: ""
         }
 
         if (url.isBlank()) {
@@ -99,7 +106,7 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        binding.tvStatus.text = if (isRemote) "Csatlakozás (Távoli)..." else "Csatlakozás (Helyi)..."
+        binding.tvStatus.text = "Csatlakozás: $url"
 
         try {
             player = ExoPlayer.Builder(this).build().apply {
@@ -115,7 +122,7 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
                     override fun onPlayerError(error: PlaybackException) {
-                        binding.tvStatus.text = "Kamera hiba: ${error.errorCodeName}"
+                        binding.tvStatus.text = "Lejátszó hiba: ${error.errorCodeName}"
                     }
                 })
                 prepare()
@@ -159,7 +166,7 @@ class MainActivity : AppCompatActivity() {
 
         val etLocalRtsp = EditText(this).apply {
             hint = "Helyi RTSP"
-            setText(prefs.getString("local_rtsp", "rtsp://admin:123456@192.168.0.104:554/stream1"))
+            setText(prefs.getString("local_rtsp", "rtsp://admin:123456@192.168.0.104:554/11"))
         }
         val etRemoteRtsp = EditText(this).apply {
             hint = "Távoli RTSP"
